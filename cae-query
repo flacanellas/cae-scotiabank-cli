@@ -1,0 +1,164 @@
+#!/usr/bin/python3.8
+# -*- coding: utf-8 -*-
+
+"""
+Author: Francisca Cañellas
+Date: 08-04-2022
+Email: francisca.leonor.alejandra.c@gmail.com
+Description: CAE util for query info about current quotes!
+"""
+
+from math import ceil
+from requests import post
+from sys import argv
+from re import match
+import json
+
+class Colors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+class DNIError(Exception):
+    def __init__(self, message):
+        self.__message = message
+
+    def __str__(self):
+        return f"{Colors.FAIL}{self.__message}{Colors.ENDC}"
+
+class DNI:
+    def __init__(self, dni):
+        self.__dni = dni
+        self.__cleanFormat()
+        
+        if not self.__isValidFormat():
+            raise DNIError('[ERROR] ¡Formato inválido del RUT \'X[X].XXX.XXX-X\'!')
+        if not self.__check():
+            raise DNIError('[ERROR] ¡RUT inválido!')
+
+    def __str__(self):
+        return str(self.__dni)
+
+    def __cleanFormat(self):
+        self.__dni = self.__dni.replace('.', '') \
+            .replace('-', '')
+
+    def __isValidFormat(self):
+        dni = self.__dni.lower()
+        return len(dni) >= 8 and len(dni) <= 9  \
+            and match(r'(?P<dni>[0-9k]{8,9}){1}', dni).group('dni') == dni
+
+    def __check(self):
+        vd = 'k' if self.__dni[-1].lower() == 'k' else int(self.__dni[-1].lower());
+        m, s = (2, 0)
+        for d in self.__dni.lower()[::-1][1:]:
+            s += (int(d) * m)
+            m = m + 1 if m < 7 else 2
+        cvd = 11 - (s % 11)
+        if cvd >= 0 and cvd <= 9:
+            return vd == cvd
+        elif cvd == 10:
+            return vd == 'k'
+        elif cvd == 1:
+            return vd == 0
+
+    def getDNI(self):
+        return self.__dni
+
+    def getFormated(self):
+        dv = self.__dni[-1]
+        if len(self.__dni) == 8:
+            p1 = self.__dni[0]
+            p2 = self.__dni[1:4]
+            p3 = self.__dni[4:7]
+        else:
+            p1 = self.__dni[0:2]
+            p2 = self.__dni[2:5]
+            p3 = self.__dni[5:8]
+
+        return '%s.%s.%s-%s' % (p1, p2, p3, dv)
+
+class CAE:
+    def __init__(self, dni):
+        self.__dni = dni
+    
+    def __printResponse(self, data):
+        if 'code' in data and data['code'] == 1:
+            exit(f"[INFO] {Colors.WARNING}{data['message']}...{Colors.ENDC}")
+
+        if data['message'] == 'SUCCESS':
+            r = data['result']
+            toPrint = 'RUT Consultado: %s\n' % (DNI(r['rutCliente']).getFormated()) \
+                + '\nInformación del Cliente\n' \
+                + 'Nombre: %s\n' % (r['nombreCliente']) \
+                + 'Email: %s\n' % (r['email'])
+            
+            if len(r['cuotas']) > 0:
+                toPrint += '\nCuotas del crédito\n'
+                
+                for c in r['cuotas']:
+                    toPrint += 'Nro. Cuota: #%s\n' % c['nroCuota'] \
+                        + 'Tipo: %s\n' % c['item'] \
+                        + 'Año Licitación: %s\n' % c['anioLicitacion'] \
+                        + 'Descripción: %s\n' % c['descripcion'] \
+                        + 'Cuenta: %s\n' % c['nroCuenta'] \
+                        + 'Fecha de vencimiento: %s\n' % c['fechaVencimiento'] \
+                        + 'Morosidad: %s\n' % ('Sí' if c['moroso'] else 'No') \
+                        + 'Monto por Mora: $%s\n' % int(ceil(c['mora'])) \
+                        + 'Total: $%s\n' % int(ceil(c['totalCuota'])) \
+                        + 'Monto Principal: $%s\n' % int(ceil(c['montoPrincipal'])) \
+                        + 'Interés: $%s\n' % int(ceil(c['interes'])) \
+                        + 'Reajuste: $%s\n' % int(ceil(c['reajuste'])) \
+                        + 'Deducciones: $%s\n' % int(ceil(c['deducciones']))
+            print(toPrint)
+
+    def query(self):
+        payload = json.dumps({ \
+            'rut': self.__dni, \
+            'codTipoCredito': 'CAE' \
+            } \
+        )
+        url = 'https://appservtrx.scotiabank.cl/botonpago/credito/getCuotas'
+        headers = {'Content-Type': 'application/json'}
+        r = post(url, data=payload, headers=headers)
+        
+        if r.status_code == 200:
+            self.__printResponse(r.json())
+        else:
+            while True:
+                r = input('[ERROR] ¡No pude obtener la información! ¿reintentar? [s/n]: ')
+                if not 's' in r and not 'n' in r:
+                    print('[ERROR] ¡Respuesta errónea!\n')
+                    continue
+                elif r == 's':
+                    self.query()
+                else:
+                    raise KeyboardInterrupt
+
+def run():
+    try:
+        if len(argv) > 1:
+            dni = argv[1] 
+        else:
+            dni = input('DNI: ')
+
+        CAE(DNI(dni).getDNI()).query()
+
+    except DNIError as e:
+        if len(argv) > 1:
+            argv.pop()
+
+        print(e, "\n")
+        run()
+
+if __name__ == '__main__':
+    try:
+        run()
+    except KeyboardInterrupt as e:
+        print("\n\n...quit!")
