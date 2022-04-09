@@ -10,6 +10,7 @@ Description: CAE util for query info about current quotes!
 
 from math import ceil
 from requests import post
+from shutil import get_terminal_size
 from sys import argv
 from re import match
 import json
@@ -94,28 +95,46 @@ class CAE:
 
         if data['message'] == 'SUCCESS':
             r = data['result']
-            toPrint = 'RUT Consultado: %s\n' % (DNI(r['rutCliente']).getFormated()) \
-                + '\nInformación del Cliente\n' \
-                + 'Nombre: %s\n' % (r['nombreCliente']) \
-                + 'Email: %s\n' % (r['email'])
-            
+            dniFormated = DNI(r['rutCliente']).getFormated()
+            clientName = r['nombreCliente'].split(' ')
+            clientName = ' '.join(clientName[2:]) + ' ' + ' '.join(clientName[0:2])
+
+            cliWidth = get_terminal_size().columns
+            br = '{C}%s{/}\n' % ('-' * int(cliWidth / 2))
+            br2 = '{W}%s{/}\n' % ('=' * int((cliWidth / 3) * 2))
+
+            toPrint = '{TC}RUT Consultado: {/}{W}%s{/}\n' % dniFormated \
+                + '\n{TC}Información del Cliente{/}\n' \
+                + br \
+                + '{C}Nombre: {/}%s\n' % clientName \
+                + '{C}Email: {/}%s\n' % r['email'] \
+                + br
+
             if len(r['cuotas']) > 0:
-                toPrint += '\nCuotas del crédito\n'
-                
+                toPrint += '\n{TC}Cuotas del crédito{/}\n\n'
+
                 for c in r['cuotas']:
-                    toPrint += 'Nro. Cuota: #%s\n' % c['nroCuota'] \
-                        + 'Tipo: %s\n' % c['item'] \
-                        + 'Año Licitación: %s\n' % c['anioLicitacion'] \
-                        + 'Descripción: %s\n' % c['descripcion'] \
-                        + 'Cuenta: %s\n' % c['nroCuenta'] \
-                        + 'Fecha de vencimiento: %s\n' % c['fechaVencimiento'] \
-                        + 'Morosidad: %s\n' % ('Sí' if c['moroso'] else 'No') \
-                        + 'Monto por Mora: $%s\n' % int(ceil(c['mora'])) \
-                        + 'Total: $%s\n' % int(ceil(c['totalCuota'])) \
-                        + 'Monto Principal: $%s\n' % int(ceil(c['montoPrincipal'])) \
-                        + 'Interés: $%s\n' % int(ceil(c['interes'])) \
-                        + 'Reajuste: $%s\n' % int(ceil(c['reajuste'])) \
-                        + 'Deducciones: $%s\n' % int(ceil(c['deducciones']))
+                    toPrint += '{W}Cuota: #%s{/}\n%s' % (c['nroCuota'], br2) \
+                        + '{TC}Resúmen:{/}\n' \
+                        + br \
+                        + '{C}Total: {/}$%s\n' % int(ceil(c['totalCuota'])) \
+                        + '{C}Fecha de vencimiento: {/}%s\n' % c['fechaVencimiento'] \
+                        + '{C}Morosidad: {/}%s\n' % ('Sí' if c['moroso'] else 'No') \
+                        + '\n{TC}Detalle:{/}\n' \
+                        + br \
+                        + '{C}Cuenta: {/}%s\n' % c['nroCuenta'] \
+                        + '{C}Tipo: {/}%s\n' % c['item'] \
+                        + '{C}Año Licitación: {/}%s\n' % c['anioLicitacion'] \
+                        + '{C}Monto por Mora: {/}$%s\n' % int(ceil(c['mora'])) \
+                        + '{C}Monto Principal: {/}$%s\n' % int(ceil(c['montoPrincipal'])) \
+                        + '{C}Interés: {/}$%s\n' % int(ceil(c['interes'])) \
+                        + '{C}Reajuste: {/}$%s\n' % int(ceil(c['reajuste'])) \
+                        + '{C}Deducciones: {/}$%s\n' % int(ceil(c['deducciones'])) \
+                        + br2
+            toPrint = toPrint.replace('{TC}', Colors.BOLD + Colors.OKCYAN) \
+                .replace('{W}', Colors.WARNING) \
+                .replace('{C}', Colors.OKCYAN) \
+                .replace('{/}', Colors.ENDC)
             print(toPrint)
 
     def query(self):
