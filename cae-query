@@ -99,9 +99,8 @@ class CAE:
             clientName = r['nombreCliente'].split(' ')
             clientName = ' '.join(clientName[2:]) + ' ' + ' '.join(clientName[0:2])
 
-            cliWidth = get_terminal_size().columns
-            br = '{C}%s{/}\n' % ('-' * int(cliWidth / 2))
-            br2 = '{W}%s{/}\n' % ('=' * int((cliWidth / 3) * 2))
+            br = '{C}%s{/}\n' % ('-' * 50)
+            br2 = '{W}%s{/}\n' % ('=' * 50)
 
             toPrint = '{TC}RUT Consultado: {/}{W}%s{/}\n' % dniFormated \
                 + '\n{TC}Información del Cliente{/}\n' \
@@ -161,6 +160,22 @@ class CAE:
                     raise KeyboardInterrupt
 
 def run():
+    # NARROW SCREEN: LOCKED
+    ####################################################################################
+    screenLocked = False
+    while get_terminal_size().columns < 60:
+        if not screenLocked:
+            print( \
+                f"{Colors.FAIL}[ERROR] ¡La consola es muy estrecha!{Colors.ENDC}\n" \
+                + f"{Colors.OKCYAN}Debes agrandarla...{Colors.ENDC}" \
+                , end=''
+            )
+        screenLocked = True
+
+    if screenLocked:
+        print(f"{Colors.OKCYAN}[OK]{Colors.ENDC}\n")
+    ####################################################################################
+
     try:
         if len(argv) > 1:
             dni = argv[1] 
