@@ -9,7 +9,7 @@ Description: CAE util for query info about current quotes!
 """
 
 from math import ceil
-from requests import post
+from requests import post, exceptions
 from shutil import get_terminal_size
 from sys import argv
 from re import match
@@ -180,7 +180,7 @@ def run():
         if len(argv) > 1:
             dni = argv[1] 
         else:
-            dni = input('DNI: ')
+            dni = input('RUT: ')
 
         CAE(DNI(dni).getDNI()).query()
 
@@ -190,9 +190,11 @@ def run():
 
         print(e, "\n")
         run()
+    except exceptions.ConnectionError as e:
+        print("No hay conexión a internet!")
 
 if __name__ == '__main__':
     try:
         run()
     except KeyboardInterrupt as e:
-        print("\n\n...quit!")
+        print("\n\n...Abortado!")
