@@ -8,12 +8,15 @@ Email: francisca.leonor.alejandra.c@gmail.com
 Description: CAE util for query info about current quotes!
 """
 
+from argparse import ArgumentParser
 from math import ceil
+from pstats import Stats
 from requests import post, exceptions
 from shutil import get_terminal_size
 from sys import argv
 from re import match
 from json import dumps
+import argparse
 
 class Colors:
     HEADER = '\033[95m'
@@ -88,6 +91,8 @@ class DNI:
 class CAE:
     def __init__(self, dni):
         self.__dni = dni
+        self.__hideCuoteDetails = False
+        self.__hideCreditDebtor = False
     
     def __printResponse(self, data):
         if 'code' in data and data['code'] == 1:
@@ -102,12 +107,14 @@ class CAE:
             br = '{C}%s{/}\n' % ('-' * 50)
             br2 = '{W}%s{/}\n' % ('=' * 50)
 
-            toPrint = '{TC}RUT Consultado: {/}{W}%s{/}\n' % dniFormated \
-                + '\n{TC}Información del Cliente{/}\n' \
-                + br \
-                + '{C}Nombre: {/}%s\n' % clientName \
-                + '{C}Email: {/}%s\n' % r['email'] \
-                + br
+            toPrint = '{TC}RUT Consultado: {/}{W}%s{/}\n' % dniFormated
+            
+            if not self.__hideCreditDebtor:
+                toPrint += '\n{TC}Información del Cliente{/}\n' \
+                    + br \
+                    + '{C}Nombre: {/}%s\n' % clientName \
+                    + '{C}Email: {/}%s\n' % r['email'] \
+                    + br
 
             if len(r['cuotas']) > 0:
                 toPrint += '\n{TC}Cuotas del crédito{/}\n\n'
@@ -119,22 +126,31 @@ class CAE:
                         + '{C}Total: {/}$%s\n' % int(ceil(c['totalCuota'])) \
                         + '{C}Fecha de vencimiento: {/}%s\n' % c['fechaVencimiento'] \
                         + '{C}Morosidad: {/}%s\n' % ('Sí' if c['moroso'] else 'No') \
-                        + '\n{TC}Detalle:{/}\n' \
-                        + br \
-                        + '{C}Cuenta: {/}%s\n' % c['nroCuenta'] \
-                        + '{C}Tipo: {/}%s\n' % c['item'] \
-                        + '{C}Año Licitación: {/}%s\n' % c['anioLicitacion'] \
-                        + '{C}Monto por Mora: {/}$%s\n' % int(ceil(c['mora'])) \
-                        + '{C}Monto Principal: {/}$%s\n' % int(ceil(c['montoPrincipal'])) \
-                        + '{C}Interés: {/}$%s\n' % int(ceil(c['interes'])) \
-                        + '{C}Reajuste: {/}$%s\n' % int(ceil(c['reajuste'])) \
-                        + '{C}Deducciones: {/}$%s\n' % int(ceil(c['deducciones'])) \
-                        + br2
+                    
+                    if not self.__hideCuoteDetails:    
+                        toPrint += '\n{TC}Detalle:{/}\n' \
+                            + br \
+                            + '{C}Cuenta: {/}%s\n' % c['nroCuenta'] \
+                            + '{C}Tipo: {/}%s\n' % c['item'] \
+                            + '{C}Año Licitación: {/}%s\n' % c['anioLicitacion'] \
+                            + '{C}Monto por Mora: {/}$%s\n' % int(ceil(c['mora'])) \
+                            + '{C}Monto Principal: {/}$%s\n' % int(ceil(c['montoPrincipal'])) \
+                            + '{C}Interés: {/}$%s\n' % int(ceil(c['interes'])) \
+                            + '{C}Reajuste: {/}$%s\n' % int(ceil(c['reajuste'])) \
+                            + '{C}Deducciones: {/}$%s\n' % int(ceil(c['deducciones']))
+                            
+                    toPrint += br2
             toPrint = toPrint.replace('{TC}', Colors.BOLD + Colors.OKCYAN) \
                 .replace('{W}', Colors.WARNING) \
                 .replace('{C}', Colors.OKCYAN) \
                 .replace('{/}', Colors.ENDC)
             print(toPrint)
+            
+    def hideCuoteDetails(self, status=False):
+        self.__hideCuoteDetails = status
+        
+    def hideCreditDebtor(self, status=False):
+        self.__hideCreditDebtor = status
 
     def query(self):
         payload = dumps({ \
@@ -159,6 +175,7 @@ class CAE:
                 else:
                     raise KeyboardInterrupt
 
+
 def run():
     # NARROW SCREEN: LOCKED
     ####################################################################################
@@ -175,20 +192,43 @@ def run():
     if screenLocked:
         print(f"{Colors.OKCYAN}[OK]{Colors.ENDC}\n")
     ####################################################################################
-
+    
+    # CLI PARAMETERS
+    ####################################################################################
+    ap = ArgumentParser(
+        add_help = False,
+        description = 'CAE Query - Obtiene los detalles de la cuota/s CAE - Scotiabank'
+    )
+    ap.version = '0.0.1'
+    ap.add_argument('-v', action='version', help='Muestra la versión del script.')
+    ap.add_argument('-h', action='store_true', dest='showHelp', \
+        help='Muestra éste mensaje de ayuda para el usuario.'
+    )
+    ap.add_argument('-o', action='store', dest='hide', \
+        help='Permite ocultar partes de la salida. (Por defecto se muestra todo)' \
+            + '\ncd: Oculta el detalle de la/s cuotas.' \
+            + '\ndd: Oculta la información del deudor.' \
+            + 'Ejemplo: -o QDCD'
+    )
+    ap.add_argument('-r', action='store', dest='dni', \
+        help='Recibe el RUT del cliente a consultar.'
+    )
+    args = ap.parse_args()
+        
+    if args.showHelp:
+        ap.print_help()
+        exit()
+    ####################################################################################
+    
     try:
-        if len(argv) > 1:
-            dni = argv[1] 
-        else:
-            dni = input('RUT: ')
-
-        CAE(DNI(dni).getDNI()).query()
+        cae = CAE(DNI(args.dni).getDNI())
+        cae.hideCuoteDetails('cd' in args.hide)
+        cae.hideCreditDebtor('dd' in args.hide)
+        cae.query()
 
     except DNIError as e:
-        if len(argv) > 1:
-            argv.pop()
-
         print(e, "\n")
+        argv[argv.index('-r') + 1] = input('RUT: ')
         run()
     except exceptions.ConnectionError as e:
         print("[ERROR] ¡No me pude conectar al servidor!")
