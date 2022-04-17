@@ -191,7 +191,7 @@ def run():
         print(e, "\n")
         run()
     except exceptions.ConnectionError as e:
-        print("No hay conexión a internet!")
+        print("[ERROR] ¡No me pude conectar al servidor!")
 
 if __name__ == '__main__':
     try:
