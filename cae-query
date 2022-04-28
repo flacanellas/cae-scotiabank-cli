@@ -221,8 +221,8 @@ def run():
     
     try:
         cae = CAE(DNI(args.dni).getDNI())
-        cae.hideCuoteDetails('cd' in args.hide)
-        cae.hideCreditDebtor('dd' in args.hide)
+        cae.hideCuoteDetails('cd' in args.hide if args.hide != None else False)
+        cae.hideCreditDebtor('dd' in args.hide if args.hide != None else False)
         cae.query()
 
     except DNIError as e:
