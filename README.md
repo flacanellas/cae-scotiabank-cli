@@ -36,6 +36,8 @@ optional arguments:
   -r DNI   Recibe el RUT del cliente a consultar.
 ```
 
+---
+
 ### Alias de uso rápido (Linux)
 
 Es posible crear un comando `cae` a partir de un alias de la siguiente forma:
