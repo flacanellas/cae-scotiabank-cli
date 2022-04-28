@@ -16,7 +16,6 @@ from shutil import get_terminal_size
 from sys import argv
 from re import match
 from json import dumps
-import argparse
 
 class Colors:
     HEADER = '\033[95m'
@@ -214,8 +213,8 @@ def run():
         help='Recibe el RUT del cliente a consultar.'
     )
     args = ap.parse_args()
-        
-    if args.showHelp:
+
+    if len(argv) == 1 or args.showHelp:
         ap.print_help()
         exit()
     ####################################################################################
